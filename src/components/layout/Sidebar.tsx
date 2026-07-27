@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { ROLES } from '@/constants/roles';
+import { isPatientRole } from '@/constants/roles';
 import { ROUTES } from '@/constants/routes';
 import {
   Shield,
@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 
 export const Sidebar: React.FC = () => {
   const { user } = useAuth();
-  const isPatient = user?.role === ROLES.PATIENT;
+  const isPatient = isPatientRole(user?.role);
 
   const patientNav = [
     { label: 'Overview', path: ROUTES.PATIENT.DASHBOARD, icon: LayoutDashboard },

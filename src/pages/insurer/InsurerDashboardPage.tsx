@@ -10,7 +10,7 @@ import { dashboardService, DashboardMetrics } from '@/services/dashboardService'
 import { formatCurrency, formatDate } from '@/utils/formatters';
 import { ROUTES } from '@/constants/routes';
 import { Claim } from '@/types/claim';
-import { FileText, Clock, CheckCircle2, XCircle, ArrowRight, ShieldCheck } from 'lucide-react';
+import { FileText, Clock, CheckCircle2, XCircle, ArrowRight, ShieldCheck, ExternalLink } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export const InsurerDashboardPage: React.FC = () => {
@@ -55,7 +55,26 @@ export const InsurerDashboardPage: React.FC = () => {
     { header: 'Provider', accessor: (row: Claim) => row.provider || row.providerName || 'N/A' },
     { header: 'Submitted Date', accessor: (row: Claim) => formatDate(row.createdAt || row.submissionDate || row.submittedDate || '') },
     { header: 'Billed Amount', accessor: (row: Claim) => formatCurrency(row.claimAmount || row.totalAmount || 0) },
-    { header: 'Approved Amount', accessor: (row: Claim) => formatCurrency(row.approvedAmount || 0) },
+    {
+      header: 'Medical Document',
+      accessor: (row: Claim) => (
+        row.document ? (
+          <a
+            href={`http://localhost:5000${row.document}`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-semibold hover:underline"
+            title="Inspect attached medical PDF"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>View PDF</span>
+            <ExternalLink className="w-3 h-3" />
+          </a>
+        ) : (
+          <span className="text-slate-400 text-xs italic">No document</span>
+        )
+      ),
+    },
     { header: 'Status', accessor: (row: Claim) => <Badge status={row.status as any} /> },
   ];
 
@@ -117,7 +136,7 @@ export const InsurerDashboardPage: React.FC = () => {
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Latest Claims Incoming Queue</CardTitle>
-            <CardDescription>Most recent claims submitted across healthcare providers.</CardDescription>
+            <CardDescription>Most recent claims submitted across healthcare providers with attached medical document links.</CardDescription>
           </div>
           <Link to={ROUTES.INSURER.CLAIMS}>
             <Button variant="ghost" size="sm" rightIcon={<ArrowRight className="w-4 h-4" />}>

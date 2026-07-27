@@ -3,7 +3,7 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Loading } from '@/components/common/Loading';
 import { ROUTES } from '@/constants/routes';
-import { ROLES } from '@/constants/roles';
+import { isInsurerRole } from '@/constants/roles';
 
 export const PublicRoute: React.FC = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -13,8 +13,9 @@ export const PublicRoute: React.FC = () => {
   }
 
   if (isAuthenticated && user) {
-    const targetDashboard =
-      user.role === ROLES.INSURER ? ROUTES.INSURER.DASHBOARD : ROUTES.PATIENT.DASHBOARD;
+    const targetDashboard = isInsurerRole(user.role)
+      ? ROUTES.INSURER.DASHBOARD
+      : ROUTES.PATIENT.DASHBOARD;
     return <Navigate to={targetDashboard} replace />;
   }
 

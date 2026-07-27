@@ -4,14 +4,14 @@ import { Shield, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTES } from '@/constants/routes';
-import { ROLES } from '@/constants/roles';
+import { isInsurerRole } from '@/constants/roles';
 
 export const Navbar: React.FC = () => {
   const { isAuthenticated, user, logout } = useAuth();
 
   const getDashboardRoute = () => {
     if (!user) return ROUTES.LOGIN;
-    return user.role === ROLES.INSURER ? ROUTES.INSURER.DASHBOARD : ROUTES.PATIENT.DASHBOARD;
+    return isInsurerRole(user.role) ? ROUTES.INSURER.DASHBOARD : ROUTES.PATIENT.DASHBOARD;
   };
 
   return (

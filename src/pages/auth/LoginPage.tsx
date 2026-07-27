@@ -61,9 +61,9 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handleRoleSelect = (role: UserRole) => {
-    setValue('role', role);
-    if (role === ROLES.INSURER) {
+  const handleRoleSelect = (role: UserRole | string) => {
+    setValue('role', role as any);
+    if (role === ROLES.INSURER || role === 'Insurer') {
       setMode('login'); // Insurers can only log in
     }
   };

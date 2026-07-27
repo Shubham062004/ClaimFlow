@@ -1,18 +1,20 @@
-import React from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { UserRole } from '@/constants/roles';
 import { ROUTES } from '@/constants/routes';
+import toast from 'react-hot-toast';
 
 interface RoleRouteProps {
   allowedRoles: (UserRole | string)[];
 }
 
 export const RoleRoute: React.FC<RoleRouteProps> = ({ allowedRoles }) => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const location = useLocation();
 
   if (!user) {
-    return <Navigate to={ROUTES.LOGIN} replace />;
+    return <Navigate to={ROUTES.LOGIN} replace state={{ from: location }} />;
   }
 
   const userRoleNormalized = user.role.toLowerCase();
@@ -20,9 +22,16 @@ export const RoleRoute: React.FC<RoleRouteProps> = ({ allowedRoles }) => {
     (role) => role.toLowerCase() === userRoleNormalized
   );
 
+  useEffect(() => {
+    if (!isAllowed) {
+      const requiredRoleName = allowedRoles[0];
+      toast.error(`Access Restricted: Please log in with an ${requiredRoleName} account to access this page.`);
+      logout();
+    }
+  }, [isAllowed]);
+
   if (!isAllowed) {
-    const isInsurer = userRoleNormalized === 'insurer';
-    return <Navigate to={isInsurer ? ROUTES.INSURER.DASHBOARD : ROUTES.PATIENT.DASHBOARD} replace />;
+    return <Navigate to={ROUTES.LOGIN} replace />;
   }
 
   return <Outlet />;

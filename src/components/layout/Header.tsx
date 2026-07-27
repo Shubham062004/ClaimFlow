@@ -1,17 +1,10 @@
 import React from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/Button';
-import { ROLES } from '@/constants/roles';
-import { User, LogOut, RefreshCw, Bell } from 'lucide-react';
+import { User, LogOut, Bell } from 'lucide-react';
 
 export const Header: React.FC = () => {
-  const { user, logout, switchRole } = useAuth();
-
-  const handleRoleToggle = () => {
-    if (!user) return;
-    const nextRole = user.role === ROLES.PATIENT ? ROLES.INSURER : ROLES.PATIENT;
-    switchRole(nextRole);
-  };
+  const { user, logout } = useAuth();
 
   return (
     <header className="sticky top-0 z-30 bg-white border-b border-slate-200/80 shadow-soft px-4 sm:px-6 py-3.5 flex items-center justify-between">
@@ -25,17 +18,6 @@ export const Header: React.FC = () => {
       </div>
 
       <div className="flex items-center gap-3">
-        {/* Quick Demo Switch Role button */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleRoleToggle}
-          leftIcon={<RefreshCw className="w-3.5 h-3.5 text-blue-600" />}
-          className="hidden sm:inline-flex text-xs"
-        >
-          Switch to {user?.role === ROLES.PATIENT ? 'Insurer' : 'Patient'}
-        </Button>
-
         {/* Notifications Icon Placeholder */}
         <button className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors relative">
           <Bell className="w-4 h-4" />
@@ -59,6 +41,7 @@ export const Header: React.FC = () => {
           size="sm"
           onClick={logout}
           className="text-slate-500 hover:text-red-600 p-2 h-8 w-8"
+          title="Sign out"
         >
           <LogOut className="w-4 h-4" />
         </Button>

@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/common/Skeleton';
 import { claimService } from '@/services/claimService';
 import { formatCurrency, formatDate } from '@/utils/formatters';
 import { Claim, ClaimStatus } from '@/types/claim';
-import { Search, Filter, CheckCircle, XCircle, FileText, ChevronLeft, ChevronRight, MessageSquare } from 'lucide-react';
+import { Search, Filter, CheckCircle, XCircle, FileText, ChevronLeft, ChevronRight, MessageSquare, ExternalLink, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export const InsurerClaimsPage: React.FC = () => {
@@ -56,7 +56,7 @@ export const InsurerClaimsPage: React.FC = () => {
     setSelectedClaim(claim);
     setAdjudicationStatus(targetStatus);
     setApprovedAmount(targetStatus === 'Approved' ? claim.claimAmount || claim.totalAmount || 0 : 0);
-    setComments('');
+    setComments(claim.comments || claim.insurerComments || '');
   };
 
   const handleAdjudicateSubmit = async (e: React.FormEvent) => {
@@ -102,12 +102,40 @@ export const InsurerClaimsPage: React.FC = () => {
     { header: 'Provider', accessor: (row: Claim) => row.provider || row.providerName || 'N/A' },
     { header: 'Submitted Date', accessor: (row: Claim) => formatDate(row.createdAt || row.submissionDate || row.submittedDate || '') },
     { header: 'Claim Amount', accessor: (row: Claim) => formatCurrency(row.claimAmount || row.totalAmount || 0) },
-    { header: 'Approved Amount', accessor: (row: Claim) => formatCurrency(row.approvedAmount || 0) },
+    {
+      header: 'Medical Document',
+      accessor: (row: Claim) => (
+        row.document ? (
+          <a
+            href={`http://localhost:5000${row.document}`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 font-semibold hover:underline"
+            title="Open attached PDF / Document"
+          >
+            <FileText className="w-3.5 h-3.5 text-blue-600" />
+            <span>View PDF</span>
+            <ExternalLink className="w-3 h-3" />
+          </a>
+        ) : (
+          <span className="text-slate-400 text-xs italic">No document</span>
+        )
+      ),
+    },
     { header: 'Status', accessor: (row: Claim) => <Badge status={row.status as any} /> },
     {
       header: 'Adjudication Controls',
       accessor: (row: Claim) => (
         <div className="flex items-center gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => openAdjudicationModal(row, row.status === 'Pending' ? 'Approved' : (row.status as ClaimStatus))}
+            className="h-7 text-xs px-2.5"
+          >
+            <Eye className="w-3.5 h-3.5 mr-1 text-slate-500" />
+            Review
+          </Button>
           <Button
             variant="ghost"
             size="sm"
@@ -142,7 +170,7 @@ export const InsurerClaimsPage: React.FC = () => {
         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <CardTitle>Claims Master Queue</CardTitle>
-            <CardDescription>Filter and adjudicate claims in real time.</CardDescription>
+            <CardDescription>Filter, inspect attached medical PDFs, and adjudicate claims in real time.</CardDescription>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
@@ -221,49 +249,82 @@ export const InsurerClaimsPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Adjudication Review Modal */}
+      {/* Adjudication & Document Review Modal */}
       {selectedClaim && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200 space-y-4">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-xl border border-slate-200 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">Claim Adjudication Form</h3>
-                <p className="text-xs text-slate-500">Reviewing {selectedClaim.claimNumber || selectedClaim.id}</p>
+                <h3 className="text-lg font-bold text-slate-900">Claim Review & Adjudication</h3>
+                <p className="text-xs text-slate-500">Claim ID: {selectedClaim.claimNumber || selectedClaim.id}</p>
               </div>
               <Badge status={adjudicationStatus as any} />
             </div>
 
             <form onSubmit={handleAdjudicateSubmit} className="space-y-4 text-xs">
-              <div className="bg-slate-50 p-3 rounded-xl space-y-1.5 text-slate-700">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Patient:</span>
-                  <span className="font-semibold">
-                    {typeof selectedClaim.patientId === 'object' && selectedClaim.patientId !== null
-                      ? selectedClaim.patientId.name
-                      : selectedClaim.patientName}
-                  </span>
+              {/* Medical Service & Patient Verification Overview */}
+              <div className="bg-slate-50 border border-slate-200/80 p-3.5 rounded-xl space-y-2 text-slate-700">
+                <div className="font-semibold text-slate-900 border-b border-slate-200/60 pb-1 flex items-center justify-between">
+                  <span>Claim Verification Overview</span>
+                  <span className="text-[10px] font-normal text-slate-500">Submitted: {formatDate(selectedClaim.createdAt || selectedClaim.submissionDate || '')}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Provider:</span>
-                  <span className="font-semibold">{selectedClaim.provider || selectedClaim.providerName}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Total Billed Amount:</span>
-                  <span className="font-semibold text-slate-900">{formatCurrency(selectedClaim.claimAmount || selectedClaim.totalAmount || 0)}</span>
-                </div>
-                {selectedClaim.document && (
-                  <div className="flex justify-between pt-1 border-t border-slate-200/60">
-                    <span className="text-slate-400">Attached Bill/Doc:</span>
-                    <a
-                      href={`http://localhost:5000${selectedClaim.document}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-blue-600 hover:underline font-semibold"
-                    >
-                      View File
-                    </a>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-slate-400 block">Patient Name</span>
+                    <span className="font-semibold text-slate-900">
+                      {typeof selectedClaim.patientId === 'object' && selectedClaim.patientId !== null
+                        ? selectedClaim.patientId.name
+                        : selectedClaim.patientName || 'N/A'}
+                    </span>
                   </div>
-                )}
+                  <div>
+                    <span className="text-slate-400 block">Provider Name</span>
+                    <span className="font-semibold text-slate-900">{selectedClaim.provider || selectedClaim.providerName || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">ICD-10 Diagnosis</span>
+                    <span className="font-semibold text-slate-900">{selectedClaim.diagnosisCode || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block">CPT Procedure</span>
+                    <span className="font-semibold text-slate-900">{selectedClaim.procedureCode || 'N/A'}</span>
+                  </div>
+                  <div className="col-span-2 pt-1 border-t border-slate-200/60">
+                    <span className="text-slate-400 block">Requested Claim Amount</span>
+                    <span className="font-bold text-slate-900 text-sm">{formatCurrency(selectedClaim.claimAmount || selectedClaim.totalAmount || 0)}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <span className="text-slate-400 block mb-0.5">Medical Reason / Description</span>
+                  <p className="bg-white p-2 rounded-lg border border-slate-200/60 text-slate-800">{selectedClaim.description}</p>
+                </div>
+
+                {/* Attached Medical Document PDF Verification Section */}
+                <div className="pt-2 border-t border-slate-200/60">
+                  <span className="text-slate-500 font-semibold block mb-1">Attached Patient Document:</span>
+                  {selectedClaim.document ? (
+                    <div className="flex items-center justify-between bg-blue-50/80 border border-blue-200 p-2.5 rounded-xl">
+                      <div className="flex items-center gap-2 text-blue-900 font-medium">
+                        <FileText className="w-4 h-4 text-blue-600 shrink-0" />
+                        <span className="truncate max-w-[240px]">{selectedClaim.document.split('/').pop()}</span>
+                      </div>
+                      <a
+                        href={`http://localhost:5000${selectedClaim.document}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors shadow-xs"
+                      >
+                        <span>Open & Inspect PDF</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  ) : (
+                    <p className="text-slate-400 italic bg-white p-2 rounded-lg border border-slate-200/60">
+                      No document attachment uploaded for this claim.
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div>
