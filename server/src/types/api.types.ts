@@ -18,6 +18,8 @@ export interface DashboardMetricsDTO {
   approvedClaims: number;
   rejectedClaims: number;
   totalClaimAmount: number;
+  totalAmount: number;
   totalApprovedAmount: number;
   recentClaims: any[];
+  latestClaims: any[];
 }

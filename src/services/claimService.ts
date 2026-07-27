@@ -1,85 +1,88 @@
 import apiClient from './apiClient';
 import { API_ENDPOINTS } from '@/constants/apiEndpoints';
-import { Claim, CreateClaimPayload } from '@/types/claim';
+import { Claim, CreateClaimPayload, UpdateClaimPayload, ClaimsResponse } from '@/types/claim';
+
+export interface GetClaimsParams {
+  status?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+}
 
 /**
- * Service for claims CRUD operations.
- * Includes mock datasets for initial frontend verification.
+ * Service for claims CRUD operations via Express REST API.
  */
 export const claimService = {
-  async getClaims(): Promise<Claim[]> {
-    try {
-      const response = await apiClient.get<Claim[]>(API_ENDPOINTS.CLAIMS.LIST);
-      return response.data;
-    } catch {
-      // Mock data for initial frontend view rendering
-      return [
-        {
-          id: 'clm_1',
-          claimNumber: 'CLM-2026-881',
-          patientId: 'usr_pt_101',
-          patientName: 'Eleanor Vance',
-          providerName: 'Metropolitan General Hospital',
-          serviceDate: '2026-06-14',
-          submittedDate: '2026-06-15',
-          totalAmount: 1450.0,
-          coveredAmount: 1200.0,
-          status: 'approved',
-          diagnosisCode: 'M54.5 (Low Back Pain)',
-          procedureCode: '99214 (Outpatient Visit)',
-          description: 'Comprehensive evaluation and physical therapy initial intake.',
-        },
-        {
-          id: 'clm_2',
-          claimNumber: 'CLM-2026-904',
-          patientId: 'usr_pt_101',
-          patientName: 'Eleanor Vance',
-          providerName: 'City Diagnostic Imaging',
-          serviceDate: '2026-07-02',
-          submittedDate: '2026-07-03',
-          totalAmount: 850.0,
-          status: 'under_review',
-          diagnosisCode: 'R07.9 (Chest Pain)',
-          procedureCode: '71250 (CT Thorax)',
-          description: 'High resolution chest CT scan with contrast.',
-        },
-        {
-          id: 'clm_3',
-          claimNumber: 'CLM-2026-942',
-          patientId: 'usr_pt_102',
-          patientName: 'James Sterling',
-          providerName: 'Apex Surgical Center',
-          serviceDate: '2026-07-10',
-          submittedDate: '2026-07-12',
-          totalAmount: 4300.0,
-          status: 'submitted',
-          diagnosisCode: 'K80.20 (Gallstone Disease)',
-          procedureCode: '47562 (Laparoscopic Cholecystectomy)',
-          description: 'Outpatient laparoscopic procedure and surgical recovery.',
-        },
-      ];
+  async getClaims(params: GetClaimsParams = {}): Promise<ClaimsResponse> {
+    const queryParams = new URLSearchParams();
+    if (params.status && params.status !== 'all') {
+      queryParams.append('status', params.status);
     }
+    if (params.search) {
+      queryParams.append('search', params.search);
+    }
+    if (params.page) {
+      queryParams.append('page', params.page.toString());
+    }
+    if (params.limit) {
+      queryParams.append('limit', params.limit.toString());
+    }
+
+    const url = `${API_ENDPOINTS.CLAIMS.LIST}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const response = await apiClient.get<{
+      success: boolean;
+      data: Claim[];
+      meta?: any;
+    }>(url);
+
+    return {
+      claims: response.data.data,
+      pagination: response.data.meta || {
+        total: response.data.data.length,
+        page: params.page || 1,
+        limit: params.limit || 10,
+        totalPages: 1,
+      },
+    };
+  },
+
+  async getClaimById(id: string): Promise<Claim> {
+    const response = await apiClient.get<{ success: boolean; data: Claim }>(
+      API_ENDPOINTS.CLAIMS.DETAILS(id)
+    );
+    return response.data.data;
   },
 
   async createClaim(payload: CreateClaimPayload): Promise<Claim> {
-    try {
-      const response = await apiClient.post<Claim>(API_ENDPOINTS.CLAIMS.CREATE, payload);
-      return response.data;
-    } catch {
-      return {
-        id: `clm_${Date.now()}`,
-        claimNumber: `CLM-2026-${Math.floor(100 + Math.random() * 900)}`,
-        patientId: 'usr_pt_101',
-        patientName: 'Eleanor Vance',
-        providerName: payload.providerName,
-        serviceDate: payload.serviceDate,
-        submittedDate: new Date().toISOString().split('T')[0],
-        totalAmount: payload.totalAmount,
-        status: 'submitted',
-        diagnosisCode: payload.diagnosisCode,
-        procedureCode: payload.procedureCode,
-        description: payload.description,
-      };
+    const formData = new FormData();
+    formData.append('provider', payload.provider);
+    formData.append('claimAmount', payload.claimAmount.toString());
+    formData.append('diagnosisCode', payload.diagnosisCode);
+    formData.append('procedureCode', payload.procedureCode);
+    formData.append('description', payload.description);
+
+    if (payload.document) {
+      formData.append('document', payload.document);
     }
+
+    const response = await apiClient.post<{ success: boolean; data: Claim }>(
+      API_ENDPOINTS.CLAIMS.CREATE,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+
+    return response.data.data;
+  },
+
+  async updateClaim(id: string, payload: UpdateClaimPayload): Promise<Claim> {
+    const response = await apiClient.patch<{ success: boolean; data: Claim }>(
+      API_ENDPOINTS.CLAIMS.UPDATE(id),
+      payload
+    );
+    return response.data.data;
   },
 };

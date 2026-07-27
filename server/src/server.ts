@@ -4,13 +4,15 @@ import { connectDB, disconnectDB } from './config/db.js';
 import { logger } from './utils/logger.js';
 
 const startServer = async (): Promise<void> => {
-  // Connect to MongoDB
-  await connectDB();
-
-  // Start HTTP server
+  // Start HTTP server immediately
   const server = app.listen(config.port, () => {
     logger.info(`[Server] ClaimFlow Express Backend running on port ${config.port} (${config.nodeEnv})`);
     logger.info(`[Server] Health check available at: http://localhost:${config.port}/api/health`);
+  });
+
+  // Connect to MongoDB asynchronously
+  connectDB().catch((err) => {
+    logger.error('[Database Error] Failed background connection attempt:', err);
   });
 
   // Graceful shutdown handler
@@ -35,5 +37,4 @@ const startServer = async (): Promise<void> => {
 
 startServer().catch((error) => {
   logger.error('[Server Error] Startup failed:', error);
-  process.exit(1);
 });

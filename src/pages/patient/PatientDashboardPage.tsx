@@ -1,41 +1,61 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { StatCard } from '@/components/dashboard/StatCard';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Table } from '@/components/tables/Table';
-import { useClaims } from '@/hooks/useClaims';
+import { Skeleton } from '@/components/common/Skeleton';
+import { dashboardService, DashboardMetrics } from '@/services/dashboardService';
 import { formatCurrency, formatDate } from '@/utils/formatters';
 import { ROUTES } from '@/constants/routes';
 import { Claim } from '@/types/claim';
-import { PlusCircle, FileText, ArrowUpRight, DollarSign, Clock, CheckCircle } from 'lucide-react';
+import { FileText, Clock, CheckCircle2, XCircle, PlusCircle, ArrowRight } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export const PatientDashboardPage: React.FC = () => {
-  const { claims } = useClaims();
+  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      setIsLoading(true);
+      try {
+        const data = await dashboardService.getMetrics();
+        setMetrics(data);
+      } catch (e: any) {
+        toast.error(e.response?.data?.message || 'Failed to fetch patient dashboard metrics');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDashboard();
+  }, []);
 
   const columns = [
     {
       header: 'Claim Number',
       accessor: (row: Claim) => (
-        <span className="font-semibold text-blue-600 flex items-center gap-1.5">
-          <FileText className="w-3.5 h-3.5" />
-          {row.claimNumber}
-        </span>
+        <div className="flex items-center gap-2">
+          <FileText className="w-4 h-4 text-blue-600 shrink-0" />
+          <span className="font-semibold text-slate-900">{row.claimNumber || `CLM-${row.id}`}</span>
+        </div>
       ),
     },
-    { header: 'Healthcare Provider', accessor: 'providerName' as const },
-    { header: 'Service Date', accessor: (row: Claim) => formatDate(row.serviceDate) },
-    { header: 'Total Billed', accessor: (row: Claim) => formatCurrency(row.totalAmount) },
-    { header: 'Status', accessor: (row: Claim) => <Badge status={row.status} /> },
+    { header: 'Provider', accessor: (row: Claim) => row.provider || row.providerName || 'N/A' },
+    { header: 'Submitted Date', accessor: (row: Claim) => formatDate(row.createdAt || row.submissionDate || row.submittedDate || '') },
+    { header: 'Claim Amount', accessor: (row: Claim) => formatCurrency(row.claimAmount || row.totalAmount || 0) },
+    { header: 'Approved Amount', accessor: (row: Claim) => formatCurrency(row.approvedAmount || 0) },
+    { header: 'Status', accessor: (row: Claim) => <Badge status={row.status as any} /> },
   ];
 
   return (
     <div className="space-y-6">
-      {/* Dashboard Top Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Patient Claims Overview</h1>
-          <p className="text-sm text-slate-500">Track claim statuses, coverage breakdowns, and submit new reimbursement requests.</p>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Patient Overview</h1>
+          <p className="text-sm text-slate-500">Track your active healthcare claims and reimbursement status.</p>
         </div>
         <Link to={ROUTES.PATIENT.NEW_CLAIM}>
           <Button variant="primary" leftIcon={<PlusCircle className="w-4 h-4" />}>
@@ -44,68 +64,68 @@ export const PatientDashboardPage: React.FC = () => {
         </Link>
       </div>
 
-      {/* Overview Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Billed</CardTitle>
-            <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
-              <DollarSign className="w-4 h-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-slate-900">$2,300.00</div>
-            <p className="text-xs text-slate-500 mt-1">Across active claims</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Under Review</CardTitle>
-            <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
-              <Clock className="w-4 h-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-slate-900">1 Claim</div>
-            <p className="text-xs text-slate-500 mt-1">Awaiting adjudication</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Approved Amount</CardTitle>
-            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
-              <CheckCircle className="w-4 h-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-slate-900">$1,200.00</div>
-            <p className="text-xs text-slate-500 mt-1">Reimbursed to date</p>
-          </CardContent>
-        </Card>
+      {/* Metric Stat Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {isLoading ? (
+          <>
+            <Skeleton className="h-28 rounded-2xl" />
+            <Skeleton className="h-28 rounded-2xl" />
+            <Skeleton className="h-28 rounded-2xl" />
+            <Skeleton className="h-28 rounded-2xl" />
+          </>
+        ) : (
+          <>
+            <StatCard
+              title="Total Claims Filed"
+              value={metrics?.totalClaims ?? 0}
+              icon={<FileText className="w-5 h-5 text-blue-600" />}
+            />
+            <StatCard
+              title="Pending Review"
+              value={metrics?.pendingClaims ?? 0}
+              icon={<Clock className="w-5 h-5 text-amber-600" />}
+            />
+            <StatCard
+              title="Approved Claims"
+              value={metrics?.approvedClaims ?? 0}
+              icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />}
+            />
+            <StatCard
+              title="Total Approved Payout"
+              value={formatCurrency(metrics?.totalApprovedAmount ?? 0)}
+              icon={<XCircle className="w-5 h-5 text-slate-600" />}
+            />
+          </>
+        )}
       </div>
 
-      {/* Recent Activity Table Container */}
+      {/* Recent Claims Section */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle>Recent Claim Submissions</CardTitle>
-            <CardDescription>View latest status updates and adjudication decisions.</CardDescription>
+            <CardTitle>Recent Submissions</CardTitle>
+            <CardDescription>Latest healthcare reimbursement filings.</CardDescription>
           </div>
           <Link to={ROUTES.PATIENT.MY_CLAIMS}>
-            <Button variant="ghost" size="sm" rightIcon={<ArrowUpRight className="w-4 h-4" />}>
+            <Button variant="ghost" size="sm" rightIcon={<ArrowRight className="w-4 h-4" />}>
               View All Claims
             </Button>
           </Link>
         </CardHeader>
-        <CardContent className="pt-2">
-          <Table
-            columns={columns}
-            data={claims.slice(0, 3)}
-            keyExtractor={(item) => item.id}
-            emptyMessage="No recent claims found. Click 'Submit New Claim' to create your first claim."
-          />
+        <CardContent>
+          {isLoading ? (
+            <div className="space-y-3 py-2">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : (
+            <Table
+              columns={columns}
+              data={metrics?.recentClaims || []}
+              keyExtractor={(item) => item.id || item._id || String(Math.random())}
+              emptyMessage="No recent claims found. Submit a new claim to get started."
+            />
+          )}
         </CardContent>
       </Card>
     </div>

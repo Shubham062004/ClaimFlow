@@ -1,11 +1,12 @@
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
-import { User, AuthState } from '@/types/auth';
-import { UserRole, ROLES } from '@/constants/roles';
+import { User, AuthState, RegisterFormData } from '@/types/auth';
+import { UserRole } from '@/constants/roles';
 import { LoginFormData } from '@/utils/validators';
 import { authService } from '@/services/authService';
 
 export interface AuthContextType extends AuthState {
-  login: (credentials: LoginFormData) => Promise<void>;
+  login: (credentials: LoginFormData) => Promise<User>;
+  register: (data: RegisterFormData) => Promise<User>;
   logout: () => void;
   switchRole: (role: UserRole) => void;
 }
@@ -18,24 +19,36 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    // Check localStorage for persisted session on initial mount
-    const storedToken = localStorage.getItem('claimflow_token');
-    const storedUser = localStorage.getItem('claimflow_user');
+    const initAuth = async () => {
+      const storedToken = localStorage.getItem('claimflow_token');
+      const storedUser = localStorage.getItem('claimflow_user');
 
-    if (storedToken && storedUser) {
-      try {
+      if (storedToken) {
         setToken(storedToken);
-        setUser(JSON.parse(storedUser));
-      } catch (e) {
-        console.error('Failed to parse stored user session', e);
-        localStorage.removeItem('claimflow_token');
-        localStorage.removeItem('claimflow_user');
+        try {
+          // Validate session with live backend endpoint
+          const userProfile = await authService.getMe();
+          setUser(userProfile);
+          localStorage.setItem('claimflow_user', JSON.stringify(userProfile));
+        } catch {
+          // Token invalid or expired
+          if (storedUser) {
+            try {
+              setUser(JSON.parse(storedUser));
+            } catch {
+              localStorage.removeItem('claimflow_token');
+              localStorage.removeItem('claimflow_user');
+            }
+          }
+        }
       }
-    }
-    setIsLoading(false);
+      setIsLoading(false);
+    };
+
+    initAuth();
   }, []);
 
-  const login = async (credentials: LoginFormData) => {
+  const login = async (credentials: LoginFormData): Promise<User> => {
     setIsLoading(true);
     try {
       const response = await authService.login(credentials);
@@ -43,6 +56,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setToken(response.token);
       localStorage.setItem('claimflow_token', response.token);
       localStorage.setItem('claimflow_user', JSON.stringify(response.user));
+      return response.user;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const register = async (data: RegisterFormData): Promise<User> => {
+    setIsLoading(true);
+    try {
+      const response = await authService.register(data);
+      setUser(response.user);
+      setToken(response.token);
+      localStorage.setItem('claimflow_token', response.token);
+      localStorage.setItem('claimflow_user', JSON.stringify(response.user));
+      return response.user;
     } finally {
       setIsLoading(false);
     }
@@ -61,7 +89,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const updatedUser: User = {
       ...user,
       role,
-      name: role === ROLES.PATIENT ? 'Eleanor Vance (Patient)' : 'Dr. Marcus Vance (Insurer)',
     };
     setUser(updatedUser);
     localStorage.setItem('claimflow_user', JSON.stringify(updatedUser));
@@ -75,6 +102,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isAuthenticated: !!user && !!token,
         isLoading,
         login,
+        register,
         logout,
         switchRole,
       }}

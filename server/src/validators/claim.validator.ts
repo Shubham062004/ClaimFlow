@@ -2,22 +2,23 @@ import { body, param, query } from 'express-validator';
 import { ClaimStatus } from '../types/claim.types.js';
 
 export const createClaimValidation = [
-  body('name')
+  body('provider')
     .trim()
     .notEmpty()
-    .withMessage('Patient name is required'),
-  body('email')
-    .trim()
-    .notEmpty()
-    .withMessage('Patient email is required')
-    .isEmail()
-    .withMessage('Please provide a valid email address')
-    .normalizeEmail(),
+    .withMessage('Healthcare provider name is required'),
   body('claimAmount')
     .notEmpty()
     .withMessage('Claim amount is required')
     .isFloat({ gt: 0 })
     .withMessage('Claim amount must be a number greater than 0'),
+  body('diagnosisCode')
+    .trim()
+    .notEmpty()
+    .withMessage('Diagnosis code is required'),
+  body('procedureCode')
+    .trim()
+    .notEmpty()
+    .withMessage('Procedure code is required'),
   body('description')
     .trim()
     .notEmpty()
@@ -38,12 +39,12 @@ export const updateClaimValidation = [
     .optional()
     .isFloat({ min: 0 })
     .withMessage('Approved amount must be a non-negative number'),
-  body('insurerComments')
+  body('comments')
     .optional()
     .isString()
     .trim()
     .isLength({ max: 1000 })
-    .withMessage('Insurer comments cannot exceed 1000 characters'),
+    .withMessage('Comments cannot exceed 1000 characters'),
 ];
 
 export const getClaimByIdValidation = [

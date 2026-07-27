@@ -9,33 +9,38 @@ export enum ClaimStatus {
 export interface IClaim {
   _id: Types.ObjectId;
   id: string;
+  claimNumber: string;
   patientId: Types.ObjectId;
-  name: string;
-  email: string;
+  provider: string;
   claimAmount: number;
+  diagnosisCode: string;
+  procedureCode: string;
   description: string;
-  documentUrl?: string;
+  document?: string;
   status: ClaimStatus;
   approvedAmount: number;
-  insurerComments: string;
-  submissionDate: Date;
+  comments: string;
+  reviewedBy?: Types.ObjectId;
+  reviewDate?: Date;
+  createdAt: Date;
   updatedAt: Date;
 }
 
 export interface IClaimDocument extends Omit<IClaim, 'id'>, Document {}
 
 export interface CreateClaimDTO {
-  name: string;
-  email: string;
+  provider: string;
   claimAmount: number;
+  diagnosisCode: string;
+  procedureCode: string;
   description: string;
-  documentUrl?: string;
+  document?: string;
 }
 
 export interface UpdateClaimDTO {
   status?: ClaimStatus;
   approvedAmount?: number;
-  insurerComments?: string;
+  comments?: string;
 }
 
 export interface ClaimQueryFilter {

@@ -16,80 +16,80 @@ const seedDatabase = async () => {
     await Claim.deleteMany({});
     console.log('[Seeder] Cleared existing Users and Claims.');
 
-    // Create sample users
     const password = 'Password123!';
 
-    const patientUser = await User.create({
-      name: 'John Doe (Patient)',
-      email: 'patient@claimflow.com',
-      password,
-      role: UserRole.PATIENT,
-    });
-
+    // Seed Single Insurer Account
     const insurerUser = await User.create({
-      name: 'Sarah Connor (Insurer)',
+      name: 'Dr. Marcus Vance (Insurer)',
       email: 'insurer@claimflow.com',
       password,
       role: UserRole.INSURER,
     });
 
-    const adminUser = await User.create({
-      name: 'System Admin',
-      email: 'admin@claimflow.com',
+    // Seed Initial Patient Account
+    const patientUser = await User.create({
+      name: 'Eleanor Vance',
+      email: 'patient@claimflow.com',
       password,
-      role: UserRole.ADMIN,
+      role: UserRole.PATIENT,
     });
 
-    console.log('[Seeder] Sample accounts created:');
-    console.log(` - Patient: ${patientUser.email} (Password: ${password})`);
-    console.log(` - Insurer: ${insurerUser.email} (Password: ${password})`);
-    console.log(` - Admin:   ${adminUser.email} (Password: ${password})`);
+    console.log('[Seeder] Accounts initialized successfully:');
+    console.log(` - Single Insurer Account: ${insurerUser.email} (Password: ${password})`);
+    console.log(` - Demo Patient Account:  ${patientUser.email} (Password: ${password})`);
 
-    // Create sample claims
+    // Create sample claims conforming to updated schema
     const sampleClaims = [
       {
+        claimNumber: 'CLM-2026-881',
         patientId: patientUser._id,
-        name: patientUser.name,
-        email: patientUser.email,
-        claimAmount: 1250.50,
-        description: 'Outpatient consultations, MRI scan, and prescribed medication for knee inflammation.',
-        documentUrl: '',
+        provider: 'Metropolitan General Hospital',
+        claimAmount: 1450.0,
+        diagnosisCode: 'M54.5 (Low Back Pain)',
+        procedureCode: '99214 (Outpatient Visit)',
+        description: 'Comprehensive evaluation and physical therapy initial intake.',
+        document: '',
+        status: ClaimStatus.APPROVED,
+        approvedAmount: 1200.0,
+        comments: 'Approved after verifying out-of-network copay deductible.',
+        reviewedBy: insurerUser._id,
+        reviewDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+      },
+      {
+        claimNumber: 'CLM-2026-904',
+        patientId: patientUser._id,
+        provider: 'City Diagnostic Imaging',
+        claimAmount: 850.0,
+        diagnosisCode: 'R07.9 (Chest Pain)',
+        procedureCode: '71250 (CT Thorax)',
+        description: 'High resolution chest CT scan with contrast.',
+        document: '',
         status: ClaimStatus.PENDING,
         approvedAmount: 0,
-        insurerComments: '',
-        submissionDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+        comments: '',
       },
       {
+        claimNumber: 'CLM-2026-942',
         patientId: patientUser._id,
-        name: patientUser.name,
-        email: patientUser.email,
-        claimAmount: 3450.00,
-        description: 'Emergency room visit and overnight observation post allergic reaction.',
-        documentUrl: '',
-        status: ClaimStatus.APPROVED,
-        approvedAmount: 3200.00,
-        insurerComments: 'Approved after policy deductible deduction of $250.',
-        submissionDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
-      },
-      {
-        patientId: patientUser._id,
-        name: patientUser.name,
-        email: patientUser.email,
-        claimAmount: 850.00,
-        description: 'Elective cosmetic dental whitening treatment.',
-        documentUrl: '',
+        provider: 'Apex Surgical Center',
+        claimAmount: 4300.0,
+        diagnosisCode: 'K80.20 (Gallstone Disease)',
+        procedureCode: '47562 (Laparoscopic Cholecystectomy)',
+        description: 'Outpatient laparoscopic procedure and surgical recovery.',
+        document: '',
         status: ClaimStatus.REJECTED,
         approvedAmount: 0,
-        insurerComments: 'Elective cosmetic dental procedures are not covered under standard plan policy section 4.2.',
-        submissionDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
+        comments: 'Prior authorization form missing. Resubmit with completed Form 104-B.',
+        reviewedBy: insurerUser._id,
+        reviewDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
       },
     ];
 
     await Claim.insertMany(sampleClaims);
-    console.log(`[Seeder] Seeded ${sampleClaims.length} sample claims successfully.`);
+    console.log(`[Seeder] Seeded ${sampleClaims.length} initial healthcare claims.`);
 
     await mongoose.disconnect();
-    console.log('[Seeder] Seeding completed successfully. Disconnected DB.');
+    console.log('[Seeder] Database seeding completed cleanly.');
     process.exit(0);
   } catch (error) {
     console.error('[Seeder Error] Failed to seed database:', error);

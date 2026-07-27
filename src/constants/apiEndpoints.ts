@@ -1,6 +1,7 @@
 export const API_ENDPOINTS = {
   AUTH: {
     LOGIN: '/auth/login',
+    REGISTER: '/auth/register',
     LOGOUT: '/auth/logout',
     ME: '/auth/me',
   },
@@ -8,6 +9,10 @@ export const API_ENDPOINTS = {
     LIST: '/claims',
     CREATE: '/claims',
     DETAILS: (id: string) => `/claims/${id}`,
-    UPDATE_STATUS: (id: string) => `/claims/${id}/status`,
+    UPDATE: (id: string) => `/claims/${id}`,
+    UPDATE_STATUS: (id: string) => `/claims/${id}`,
+  },
+  DASHBOARD: {
+    METRICS: '/dashboard',
   },
 } as const;

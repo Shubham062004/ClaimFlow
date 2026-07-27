@@ -9,7 +9,6 @@ export class DashboardService {
   static async getMetrics(user: AuthUser): Promise<DashboardMetricsDTO> {
     const filter: Record<string, any> = {};
 
-    // Filter by patient ID if request is from a Patient
     if (user.role === UserRole.PATIENT) {
       filter.patientId = new mongoose.Types.ObjectId(user.id);
     }
@@ -56,8 +55,10 @@ export class DashboardService {
       approvedClaims: metrics.approvedClaims,
       rejectedClaims: metrics.rejectedClaims,
       totalClaimAmount: metrics.totalClaimAmount,
+      totalAmount: metrics.totalClaimAmount,
       totalApprovedAmount: metrics.totalApprovedAmount,
       recentClaims,
+      latestClaims: recentClaims,
     };
   }
 }

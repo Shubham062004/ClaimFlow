@@ -1,4 +1,4 @@
-import { UserRole } from '@/constants/roles';
+export type UserRole = 'Patient' | 'Insurer' | 'Admin' | 'patient' | 'insurer' | 'admin';
 
 export interface User {
   id: string;
@@ -8,6 +8,13 @@ export interface User {
   avatarUrl?: string;
   memberId?: string;
   organization?: string;
+  createdAt?: string;
+}
+
+export interface RegisterFormData {
+  name: string;
+  email: string;
+  password: string;
 }
 
 export interface AuthState {

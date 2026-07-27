@@ -154,6 +154,7 @@ npm run seed:server
 
 | Command | Location | Description |
 | :--- | :--- | :--- |
+| `npm run dev:all` or `npm start` | Root | Starts **BOTH** Frontend & Backend concurrently in one terminal |
 | `npm run dev` | Root | Starts Vite React frontend on `http://localhost:5173` |
 | `npm run dev:server` | Root | Starts Express backend in watch mode on `http://localhost:5000` |
 | `npm run build` | Root | Builds production bundle for React frontend |

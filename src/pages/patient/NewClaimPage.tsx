@@ -1,19 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
 import { claimFormSchema, ClaimFormData } from '@/utils/validators';
-import { useClaims } from '@/hooks/useClaims';
+import { claimService } from '@/services/claimService';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { FormField } from '@/components/forms/FormField';
 import { ROUTES } from '@/constants/routes';
-import { FilePlus, Calendar, DollarSign, Stethoscope, Hash, ArrowLeft, Send } from 'lucide-react';
+import { FilePlus, DollarSign, Stethoscope, Hash, ArrowLeft, Send, Upload, CheckCircle2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export const NewClaimPage: React.FC = () => {
   const navigate = useNavigate();
-  const { createClaim, isSubmitting } = useClaims();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const {
     register,
@@ -31,12 +33,35 @@ export const NewClaimPage: React.FC = () => {
     },
   });
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('File size exceeds maximum allowed limit of 5MB.');
+        return;
+      }
+      setSelectedFile(file);
+    }
+  };
+
   const onSubmit = async (data: ClaimFormData) => {
+    setIsSubmitting(true);
     try {
-      await createClaim(data);
+      await claimService.createClaim({
+        provider: data.providerName,
+        claimAmount: data.totalAmount,
+        diagnosisCode: data.diagnosisCode,
+        procedureCode: data.procedureCode,
+        description: data.description,
+        document: selectedFile,
+      });
+      toast.success('Healthcare claim submitted successfully!');
       navigate(ROUTES.PATIENT.MY_CLAIMS);
-    } catch {
-      // Handled in mutation hook
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'Failed to submit claim. Please try again.';
+      toast.error(msg);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -80,14 +105,6 @@ export const NewClaimPage: React.FC = () => {
             </FormField>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField label="Date of Service" required error={errors.serviceDate?.message}>
-                <Input
-                  {...register('serviceDate')}
-                  type="date"
-                  leftIcon={<Calendar className="w-4 h-4 text-slate-400" />}
-                />
-              </FormField>
-
               <FormField label="Total Billed Amount ($ USD)" required error={errors.totalAmount?.message}>
                 <Input
                   {...register('totalAmount')}
@@ -97,9 +114,7 @@ export const NewClaimPage: React.FC = () => {
                   leftIcon={<DollarSign className="w-4 h-4 text-slate-400" />}
                 />
               </FormField>
-            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField label="ICD-10 Diagnosis Code" required error={errors.diagnosisCode?.message}>
                 <Input
                   {...register('diagnosisCode')}
@@ -107,13 +122,37 @@ export const NewClaimPage: React.FC = () => {
                   leftIcon={<Hash className="w-4 h-4 text-slate-400" />}
                 />
               </FormField>
+            </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField label="CPT Procedure Code" required error={errors.procedureCode?.message}>
                 <Input
                   {...register('procedureCode')}
                   placeholder="e.g. 99214"
                   leftIcon={<Hash className="w-4 h-4 text-slate-400" />}
                 />
+              </FormField>
+
+              <FormField label="Medical Attachment (PDF, PNG, JPG - Max 5MB)">
+                <div className="relative flex items-center justify-between border border-slate-200 rounded-xl p-2.5 bg-slate-50/50">
+                  <input
+                    type="file"
+                    accept=".pdf,.png,.jpg,.jpeg"
+                    onChange={handleFileChange}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  />
+                  <div className="flex items-center gap-2 text-xs text-slate-600">
+                    <Upload className="w-4 h-4 text-blue-600" />
+                    {selectedFile ? (
+                      <span className="font-semibold text-emerald-600 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
+                      </span>
+                    ) : (
+                      <span>Upload Itemized Bill / Diagnosis PDF</span>
+                    )}
+                  </div>
+                </div>
               </FormField>
             </div>
 
@@ -132,7 +171,13 @@ export const NewClaimPage: React.FC = () => {
               <Button type="button" variant="ghost" onClick={() => navigate(ROUTES.PATIENT.DASHBOARD)}>
                 Cancel
               </Button>
-              <Button type="submit" variant="primary" isLoading={isSubmitting} rightIcon={<Send className="w-4 h-4" />}>
+              <Button
+                type="submit"
+                variant="primary"
+                isLoading={isSubmitting}
+                disabled={isSubmitting}
+                rightIcon={<Send className="w-4 h-4" />}
+              >
                 Submit Claim for Review
               </Button>
             </div>

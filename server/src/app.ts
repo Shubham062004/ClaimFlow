@@ -2,6 +2,7 @@ import express, { Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
+import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { config } from './config/env.js';
 import { morganMiddleware } from './utils/logger.js';
@@ -10,14 +11,13 @@ import { notFoundHandler, globalErrorHandler } from './middleware/error.middlewa
 
 const app: Application = express();
 
-// Security Middlewares
+// Security Headers
 app.use(helmet());
 
-// CORS Middleware
+// CORS Configuration
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, curl, or postman)
       if (!origin || config.corsOrigins.includes(origin) || config.nodeEnv === 'development') {
         callback(null, true);
       } else {
@@ -29,6 +29,31 @@ app.use(
     allowedHeaders: ['Content-Type', 'Authorization'],
   })
 );
+
+// General Rate Limiting
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200, // Limit each IP to 200 requests per 15 mins
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many requests from this IP. Please try again after 15 minutes.',
+  },
+});
+app.use('/api', globalLimiter);
+
+// Auth Limiter (Stricter for brute-force protection)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30, // 30 login/register attempts per 15 mins
+  message: {
+    success: false,
+    message: 'Too many authentication attempts. Please try again after 15 minutes.',
+  },
+});
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
 
 // Logging Middleware
 app.use(morganMiddleware);

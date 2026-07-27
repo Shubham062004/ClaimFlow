@@ -9,48 +9,61 @@ export class ClaimService {
    * Create a new healthcare claim (Patient action)
    */
   static async createClaim(user: AuthUser, dto: CreateClaimDTO, file?: Express.Multer.File) {
-    const documentUrl = file ? `/uploads/${file.filename}` : dto.documentUrl || '';
+    const documentPath = file ? `/uploads/${file.filename}` : dto.document || '';
+    const uniqueClaimNumber = `CLM-2026-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const claim = await Claim.create({
+      claimNumber: uniqueClaimNumber,
       patientId: user.id,
-      name: dto.name || user.name,
-      email: dto.email || user.email,
+      provider: dto.provider,
       claimAmount: dto.claimAmount,
+      diagnosisCode: dto.diagnosisCode,
+      procedureCode: dto.procedureCode,
       description: dto.description,
-      documentUrl,
+      document: documentPath,
       status: ClaimStatus.PENDING,
       approvedAmount: 0,
-      insurerComments: '',
-      submissionDate: new Date(),
+      comments: '',
     });
 
     return claim;
   }
 
   /**
-   * Fetch list of claims with role-based visibility and pagination/filtering
+   * Fetch claims list with role-based scoping, search, filter, and pagination
    */
   static async getClaims(user: AuthUser, query: ClaimQueryFilter) {
     const { status, search, page = 1, limit = 10 } = query;
     const filter: Record<string, any> = {};
 
-    // Patient can only see their own claims
+    // Scoping: Patients only see their own claims
     if (user.role === UserRole.PATIENT) {
       filter.patientId = user.id;
     }
 
-    // Filter by status if provided
+    // Status filter
     if (status) {
       filter.status = status;
     }
 
-    // Search filter across name, email, or description
+    // Comprehensive backend search
     if (search) {
+      const searchRegex = new RegExp(search, 'i');
       filter.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
+        { claimNumber: searchRegex },
+        { provider: searchRegex },
+        { diagnosisCode: searchRegex },
+        { procedureCode: searchRegex },
+        { description: searchRegex },
+        { status: searchRegex },
       ];
+
+      // If search query is numeric, match claim amount
+      const numericSearch = Number(search);
+      if (!isNaN(numericSearch)) {
+        filter.$or.push({ claimAmount: numericSearch });
+        filter.$or.push({ approvedAmount: numericSearch });
+      }
     }
 
     const skip = (Number(page) - 1) * Number(limit);
@@ -61,7 +74,8 @@ export class ClaimService {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limitNum)
-        .populate('patientId', 'name email role'),
+        .populate('patientId', 'name email role')
+        .populate('reviewedBy', 'name email role'),
       Claim.countDocuments(filter),
     ]);
 
@@ -77,15 +91,18 @@ export class ClaimService {
   }
 
   /**
-   * Fetch single claim by ID with role ownership check
+   * Get claim details by ID with role-based ownership validation
    */
   static async getClaimById(id: string, user: AuthUser) {
-    const claim = await Claim.findById(id).populate('patientId', 'name email role');
+    const claim = await Claim.findById(id)
+      .populate('patientId', 'name email role')
+      .populate('reviewedBy', 'name email role');
+
     if (!claim) {
       throw ApiError.notFound(`Claim with ID '${id}' not found.`);
     }
 
-    // Role check: Patients can only view their own claim
+    // Patients can only view their own claims
     if (user.role === UserRole.PATIENT) {
       const patientObjId = (claim.patientId as any)._id || claim.patientId;
       if (patientObjId.toString() !== user.id) {
@@ -97,9 +114,9 @@ export class ClaimService {
   }
 
   /**
-   * Update claim status and adjudication details (Insurer / Admin action)
+   * Adjudicate claim status (Insurer / Admin action)
    */
-  static async updateClaim(id: string, dto: UpdateClaimDTO, _user: AuthUser) {
+  static async updateClaim(id: string, dto: UpdateClaimDTO, user: AuthUser) {
     const claim = await Claim.findById(id);
     if (!claim) {
       throw ApiError.notFound(`Claim with ID '${id}' not found.`);
@@ -111,12 +128,12 @@ export class ClaimService {
 
     if (dto.approvedAmount !== undefined) {
       if (dto.approvedAmount > claim.claimAmount) {
-        throw ApiError.badRequest('Approved amount cannot be greater than requested claim amount.');
+        throw ApiError.badRequest('Approved amount cannot exceed requested claim amount.');
       }
       claim.approvedAmount = dto.approvedAmount;
     }
 
-    // Auto-set approved amount if status changed to Approved without explicit amount
+    // Default approved amount to full claim amount if approved without explicit amount specified
     if (dto.status === ClaimStatus.APPROVED && dto.approvedAmount === undefined && claim.approvedAmount === 0) {
       claim.approvedAmount = claim.claimAmount;
     }
@@ -126,12 +143,18 @@ export class ClaimService {
       claim.approvedAmount = 0;
     }
 
-    if (dto.insurerComments !== undefined) {
-      claim.insurerComments = dto.insurerComments;
+    if (dto.comments !== undefined) {
+      claim.comments = dto.comments;
     }
+
+    claim.reviewedBy = user.id as any;
+    claim.reviewDate = new Date();
 
     await claim.save();
 
-    return claim;
+    return claim.populate([
+      { path: 'patientId', select: 'name email role' },
+      { path: 'reviewedBy', select: 'name email role' },
+    ]);
   }
 }

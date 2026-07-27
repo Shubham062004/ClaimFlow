@@ -3,21 +3,21 @@ import { IClaimDocument, ClaimStatus } from '../types/claim.types.js';
 
 const ClaimSchema: Schema<IClaimDocument> = new Schema(
   {
+    claimNumber: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+    },
     patientId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: [true, 'Patient ID is required'],
       index: true,
     },
-    name: {
+    provider: {
       type: String,
-      required: [true, 'Patient name is required'],
-      trim: true,
-    },
-    email: {
-      type: String,
-      required: [true, 'Patient email is required'],
-      lowercase: true,
+      required: [true, 'Healthcare provider name is required'],
       trim: true,
     },
     claimAmount: {
@@ -25,13 +25,23 @@ const ClaimSchema: Schema<IClaimDocument> = new Schema(
       required: [true, 'Claim amount is required'],
       min: [0.01, 'Claim amount must be greater than 0'],
     },
+    diagnosisCode: {
+      type: String,
+      required: [true, 'Diagnosis code is required'],
+      trim: true,
+    },
+    procedureCode: {
+      type: String,
+      required: [true, 'Procedure code is required'],
+      trim: true,
+    },
     description: {
       type: String,
       required: [true, 'Claim description is required'],
       trim: true,
       maxlength: [2000, 'Description cannot exceed 2000 characters'],
     },
-    documentUrl: {
+    document: {
       type: String,
       default: '',
     },
@@ -46,14 +56,19 @@ const ClaimSchema: Schema<IClaimDocument> = new Schema(
       default: 0,
       min: [0, 'Approved amount cannot be negative'],
     },
-    insurerComments: {
+    comments: {
       type: String,
       default: '',
       trim: true,
     },
-    submissionDate: {
+    reviewedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    reviewDate: {
       type: Date,
-      default: Date.now,
+      default: null,
     },
   },
   {
@@ -62,7 +77,13 @@ const ClaimSchema: Schema<IClaimDocument> = new Schema(
       virtuals: true,
       transform: (_doc, ret: Record<string, any>) => {
         ret.id = ret._id.toString();
-        ret.patientId = ret.patientId?.toString() || ret.patientId;
+        if (ret.patientId && typeof ret.patientId === 'object' && ret.patientId._id) {
+          ret.patientName = ret.patientId.name;
+          ret.patientEmail = ret.patientId.email;
+        }
+        ret.documentUrl = ret.document;
+        ret.insurerComments = ret.comments;
+        ret.providerName = ret.provider;
         delete ret._id;
         delete ret.__v;
         return ret;
@@ -71,5 +92,18 @@ const ClaimSchema: Schema<IClaimDocument> = new Schema(
     toObject: { virtuals: true },
   }
 );
+
+// Virtual aliases for frontend compatibility
+ClaimSchema.virtual('documentUrl').get(function () {
+  return this.document;
+});
+
+ClaimSchema.virtual('insurerComments').get(function () {
+  return this.comments;
+});
+
+ClaimSchema.virtual('providerName').get(function () {
+  return this.provider;
+});
 
 export const Claim = mongoose.model<IClaimDocument>('Claim', ClaimSchema);
